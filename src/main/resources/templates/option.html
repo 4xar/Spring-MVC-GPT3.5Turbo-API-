@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+Option
+
+This displays both Revision and Quiz
+
+Allows for the user to choose their
+preferred option.
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Option</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<style>
+
+</style>
+<body>
+<nav>
+  <h2><a href="/logout">Logout</a></h2>
+</nav>
+<div class="container">
+  <div class="lef-area">
+    <div class="quiz">
+      <li>
+        <a href="/dashboard">Home</a>
+      </li>
+    </div>
+    <div class="quiz">
+      <li>
+        <a href="/quiz/history">Quiz History</a>
+      </li>
+    </div>
+  </div>
+  <div class="mid-area-p5 mid-area-p6">
+    <p th:text="${Question}"></p>
+
+    <div class="table">
+      <div class="left">
+        <div class="tr">
+          <li><a th:href="@{/quiz/revision(id=${id})}">Revision</a></li>
+        </div>
+      </div>
+      <div class="right">
+        <div class="tr">
+          <li><a th:href="@{/quizsummary(id=${id})}">Quiz</a></li>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="right-area">
+    <h3>Your Quizzes</h3>
+    <ul class="quizList">
+    </ul>
+  </div>
+</div>
+</body>
+<script>
+  sessionStorage.removeItem('answeredQuestions');
+  sessionStorage.removeItem('score');
+  async function fetchAllQuizzes() {
+    try {
+      const response = await fetch("/allQuizzes");
+      if (!response.ok) {
+        throw new Error("Network Response Error");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error:", error);
+      return [];
+    }
+  }
+
+  async function loadRightArea() {
+    const quizList = document.querySelector(".right-area .quizList");
+    quizList.innerHTML = ""; // Clear existing quiz buttons
+
+    try {
+      const quizzes = await fetchAllQuizzes();
+      quizzes.forEach(quiz => {
+        const listItem = document.createElement("li");
+        listItem.className = "quiz-item";
+
+        const anchor = document.createElement("a");
+        anchor.className = "quiz-button";
+        anchor.textContent = quiz[1];
+        anchor.href = "/quizsummary?id=" + quiz[0];
+
+        listItem.appendChild(anchor);
+        quizList.appendChild(listItem);
+      });
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
+
+  window.onload = function() {
+    loadRightArea();
+  };
+</script>
+</html>

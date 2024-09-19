@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<!--
+Quiz summary
+
+This shows all the questions and
+answers that will be coming up.
+
+It displays 3 buttons
+Begin - Start quiz
+Reset - Delete quiz (so you can generate a new one)
+Cancel - return to Dashboard
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summary</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav>
+    <h2><a href="/logout">Logout</a></h2>
+</nav>
+<div class="container">
+    <div class="lef-area">
+        <div class="quiz">
+            <ul>
+                <li><a href="/dashboard">Home</a></li>
+                <li><a href="/quiz/history">Quiz History</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="mid-area">
+        <div class="chatbot">
+            <p>[chatbot] Studybud: Here are the questions and answers. Take a moment to learn them before the quiz begins</p>
+            <div class="flashcard-section">
+                <h3>Flashcard Questions</h3>
+                <div th:each="flashcard : ${flashcards}" class="flashcard">
+                    <p th:text="${flashcard.getQuestion()}"></p>
+                    <div class="options" th:each="option : ${flashcard.getOptions()}">
+                        <span class="option-letter" th:text="${option.getOptionLetter()}"></span>. <span class="option-text" th:text="${option.getOptionText()}"></span>
+                    </div>
+                    <button onclick="showCorrectAnswer(this)">Show Correct Answer</button>
+                    <p class="correct-answer" style="display: none;" th:text="'Correct Answer: ' + ${flashcard.getCorrectAnswer()}"></p>
+                </div>
+            </div>
+        </div>
+        <div class="suggested-answer">
+            <ul>
+                <li><a href="#" onclick="beginQuiz()">Begin</a></li>
+                <li><a href="#" onclick="resetQuiz()">Reset Q&A</a></li>
+                <li><a href="/dashboard">Cancel</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="right-area">
+        <h3>Your Quizzes</h3>
+        <ul class="quizList">
+        </ul>
+    </div>
+</div>
+<script>
+    sessionStorage.removeItem('score');
+
+    // Get id from url
+    function getIdParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    const quizId = getIdParam('id');
+
+    function beginQuiz() {
+        window.location.href = '/quiz?id=' + quizId;
+    }
+
+    // Delete
+    function resetQuiz() {
+        fetch(`/quiz/delete/` + quizId, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                if (response.ok) {
+                    alert("Deleting...");
+                    window.location.href = "/dashboard";
+                } else {
+                    throw new Error('Failed to delete the quiz');
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                alert('An error occurred while deleting the quiz. Please try again.');
+            });
+    }
+
+    async function fetchAllQuizzes() {
+        try {
+            const response = await fetch("/allQuizzes");
+            if (!response.ok) {
+                throw new Error("Network response Error");
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error:", error);
+            return [];
+        }
+    }
+
+    async function loadRightArea() {
+        const quizList = document.querySelector(".right-area .quizList");
+        quizList.innerHTML = "";
+
+        try {
+            const quizzes = await fetchAllQuizzes();
+            quizzes.forEach(quiz => {
+                const listItem = document.createElement("li");
+                listItem.className = "quiz-link";
+
+                const anchor = document.createElement("a");
+                anchor.className = "quiz-button";
+                anchor.textContent = quiz[1];
+                anchor.href = "/quiz/option?id=" + quiz[0];
+
+                listItem.appendChild(anchor);
+                quizList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    }
+    function showCorrectAnswer(button) {
+        const correctAnswer = button.nextElementSibling;
+        correctAnswer.style.display = "block";
+    }
+
+    window.onload = function() {
+        loadRightArea();
+    };
+</script>
+</body>
+</html>

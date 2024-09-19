@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!--
+Revision
+
+This page allows users to keep answering
+questions repetitively. Until all unique
+questions are answered correctly without
+any incorrect, the revision will end.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revision</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav>
+    <h2><a href="/logout">Logout</a></h2>
+</nav>
+<div class="container">
+    <div class="lef-area">
+        <div class="quiz">
+            <li><a href="/dashboard">Home</a></li>
+        </div>
+        <div class="quiz">
+            <li><a href="/quiz/history">Quiz History</a></li>
+        </div>
+<!--        <div class="score">-->
+<!--            <h3>Quiz</h3>-->
+<!--            <p>Current Quiz</p>-->
+<!--            <p>Score: <span id="scoreDisplay">/10</span></p>-->
+<!--        </div>-->
+    </div>
+
+    <div class="mid-area-p4">
+        <h2 th:text="${quiz.getName()}" style="align-content: center; text-align: center;"></h2>
+        <div class="multi-answer" id="flashcardContainer">
+            <input type="hidden" id="quizName" name="quizName" th:value="${quiz.getName()}"/>
+            <div style="display: block" id="flashcard">
+                <p th:text="${flashcards[Index].question}"></p>
+                <input type="hidden" id="question" name="question" th:value="${flashcards[Index].question}"/>
+                <div class="ans-opt">
+                    <p>Multiple choice answers:</p>
+                    <p th:each="flashcard: ${flashcards[Index].options}">
+                        <input type="hidden" id="correctAnswer" th:value="${flashcards[Index].getCorrectAnswer()}"/>
+                        <td th:text="${flashcard.getOptionLetter()}" />
+                        <td th:text="${flashcard.getOptionText()}" />
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <form id="quizForm" th:action="@{/quiz/revision}" th:object="${quiz}" method="get">
+                <input type="hidden" name="id" th:value="${quiz.id}"/>
+                <input type="hidden" name="currentFlashcardIndex" th:value="${Index}"/>
+                <input class="input1" type="text" id="flashcardInput" name="lname" placeholder="Enter your answer..." style="text-align: center;"><br><br>
+            </form>
+        </div>
+    </div>
+    <div class="right-area">
+        <h3>Your Quizzes</h3>
+        <ul class="quizList"></ul>
+    </div>
+</div>
+</body>
+
+<script>
+    // var score = sessionStorage.getItem('score') || 0;
+    var answeredQuestions = JSON.parse(sessionStorage.getItem('answeredQuestions')) || [];
+    // document.getElementById('scoreDisplay').innerText = score + '/10';
+
+    function handleNext() {
+        var inputText = document.getElementById("flashcardInput").value;
+        var correctAnswer = document.getElementById("correctAnswer").value;
+        var question = document.getElementById("question").value; // Assuming you have a unique identifier for each question
+        var flashcardContainer = document.getElementById("flashcardContainer");
+
+        if (inputText.trim() === "") {
+            alert("Input cannot be empty!");
+            return;
+        }
+
+        var isCorrect = inputText.trim().toLowerCase() === correctAnswer.toLowerCase();
+        flashcardContainer.classList.remove("correct-answer", "incorrect-answer");
+        flashcardContainer.classList.add(isCorrect ? "correct-answer" : "incorrect-answer");
+
+
+        if (isCorrect && !answeredQuestions.includes(question)) {
+            // score++;
+            // sessionStorage.setItem('score', score);
+            answeredQuestions.push(question);
+            // document.getElementById('scoreDisplay').innerText = score + '/10';
+            sessionStorage.setItem('answeredQuestions', JSON.stringify(answeredQuestions));
+        } else if (!isCorrect) {
+
+            // score = 0;
+            answeredQuestions = [];
+            sessionStorage.setItem('answeredQuestions', JSON.stringify(answeredQuestions));
+            // sessionStorage.setItem('score', score);
+            // document.getElementById('scoreDisplay').innerText = score + '/10';
+        }
+
+        setTimeout(function() {
+            flashcardContainer.classList.remove("correct-answer", "incorrect-answer");
+            if (answeredQuestions.length === 10) {
+                alert("Revision completed!");
+                answeredQuestions = []
+                window.location.href = "/dashboard";
+            } else {
+                document.getElementById("quizForm").submit();
+            }
+        }, 400);
+    }
+
+    document.getElementById("quizForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        handleNext();
+    });
+
+    async function fetchAllQuizzes() {
+        try {
+            const response = await fetch("/allQuizzes");
+            if (!response.ok) {
+                throw new Error("Network Response Error");
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error:", error);
+            return [];
+        }
+    }
+
+    async function loadRightArea() {
+        const quizList = document.querySelector(".right-area .quizList");
+        quizList.innerHTML = "";
+
+        try {
+            const quizzes = await fetchAllQuizzes();
+            quizzes.forEach(quiz => {
+                const listItem = document.createElement("li");
+                listItem.className = "quiz-link";
+
+                const anchor = document.createElement("a");
+                anchor.className = "quiz-button";
+                anchor.textContent = quiz[1];
+                anchor.href = "/quiz/option?id=" + quiz[0];
+
+                listItem.appendChild(anchor);
+                quizList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    }
+
+    window.onload = function() {
+        loadRightArea();
+
+    };
+
+</script>
+</html>

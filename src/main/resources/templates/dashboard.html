@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<!--
+Dashboard
+
+This is the main page for the user.
+It allows for:
+- Generating Quiz
+- Choosing a Quiz
+- Seeing Quiz History
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    form {
+      margin: 0;
+      padding: 0;
+    }
+
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body>
+<nav>
+  <h2><a href="/logout">Logout</a></h2>
+</nav>
+<div class="main">
+  <div class="upper-area">
+    <div class="lef-area">
+      <div class="home">
+        <li><a href="/dashboard">Home</a></li>
+      </div>
+      <div class="quiz">
+        <li><a href="/quiz/history">Quiz History</a></li>
+      </div>
+    </div>
+    <div class="right-area">
+      <h3>Your Quizzes</h3>
+      <ul class="quizList"></ul>
+    </div>
+  </div>
+  <div class="lower-area">
+    <div class="chatbot">
+      <p>[chatbot] Studybud: Welcome back! What topic would you like to generate questions for today?</p>
+    </div>
+    <div class="suggested-answer">
+      <h3>Suggested Topics:</h3>
+      <ul class="quiz-list"></ul>
+    </div>
+    <div class="chatbot">
+      <input class="input1" id="topicInput" type="text" placeholder="Enter a new topic you'd like to study with Studybud..." style="text-align: center;">
+    </div>
+    <br><br>
+    <p class="verification-text" id="loadingText" style="display: none;">VERIFYING <span class="loader"></span></p>
+    <p class="verification-text" id="successText" style="display: none;">Quiz generated successfully!</p>
+  </div>
+</div>
+</body>
+
+<script>
+
+  const topicInput = document.getElementById('topicInput');
+
+  topicInput.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+      generateQuiz();
+    }
+  });
+
+  function generateQuiz() {
+
+    // No special letters
+    function isValidInput(input) {
+      const regex = /^[a-zA-Z0-9\s]+$/;
+      return regex.test(input);
+    }
+
+    const topic = document.getElementById("topicInput").value;
+    // Stop it from being empty
+    if (topic === ""){
+      alert("Please do not leave blank...");
+      return;
+    }
+
+    if (!isValidInput(topic)) {
+      alert("Please enter a topic without special characters.");
+      return;
+    }
+
+
+    function refreshRightSection() {
+      const quizListContainer = document.querySelector(".right-area");
+      const quizList = quizListContainer.querySelector(".quizList");
+      quizList.innerHTML = "";
+      loadRightArea();
+    }
+
+    document.getElementById("loadingText").style.display = "block";
+    document.getElementById("successText").style.display = "none";
+
+    // Parse topic to AI
+    fetch("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: topic })
+    })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('Network response was not ok');
+              }
+              return response.text();
+            })
+            .then(data => {
+              document.getElementById("loadingText").style.display = "none";
+              document.getElementById("successText").style.display = "block";
+
+              addQuizButton(topic, data);
+              refreshRightSection();
+            })
+            .catch(error => {
+              console.error("Error:", error);
+              document.getElementById("loadingText").style.display = "none";
+              alert("An error on the API side occurred. Please try again.");
+            });
+  }
+
+  function getQuizIdsFromStorage() {
+    const quizIdsString = localStorage.getItem("quizIds");
+    return quizIdsString ? JSON.parse(quizIdsString) : [];
+  }
+  // save buttons
+  function saveQuizIdToStorage(quizId) {
+    const quizIds = getQuizIdsFromStorage();
+    quizIds.push(quizId);
+    localStorage.setItem("quizIds", JSON.stringify(quizIds));
+  }
+
+  async function getLatestQuizIds() {
+    try {
+      const response = await fetch("/latestQuizzes");
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error:", error);
+      return [];
+    }
+  }
+  // creates button in middle section
+  async function recreateQuizButtonsFromServer() {
+    try {
+      const latestQuiz = await getLatestQuizIds();
+      const quizList = document.querySelector(".lower-area .suggested-answer .quiz-list");
+
+      latestQuiz.forEach(quiz => {
+        const { name, id } = quiz;
+        const listItem = document.createElement("li");
+        listItem.className = "quiz-item";
+
+        const anchor = document.createElement("a");
+        anchor.className = "quiz-button";
+        anchor.textContent = name;
+        anchor.href = "/quizsummary?id=" + id;
+
+        listItem.appendChild(anchor);
+        quizList.appendChild(listItem);
+      });
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
+
+  function addQuizButton(topic, quizId) {
+    saveQuizIdToStorage(quizId);
+    const quizList = document.querySelector(".lower-area .suggested-answer .quiz-list");
+    const quizItems = quizList.querySelectorAll("li");
+
+    if (quizItems.length >= 3) {
+      quizItems[0].remove();
+    }
+
+    const anchor = document.createElement("a");
+    anchor.className = "quiz-button";
+    anchor.textContent = topic;
+    anchor.href = "/quizsummary?id=" + quizId;
+
+    const listItem = document.createElement("li");
+    listItem.className = "quiz-item";
+    listItem.appendChild(anchor);
+
+    quizList.appendChild(listItem);
+  }
+  async function fetchAllQuizzes() {
+    try {
+      const response = await fetch("/allQuizzes");
+      if (!response.ok) {
+        throw new Error("Network Response Error");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error:", error);
+      return [];
+    }
+  }
+
+  async function loadRightArea() {
+    const quizList = document.querySelector(".right-area .quizList");
+    quizList.innerHTML = "";
+
+    try {
+      const quizzes = await fetchAllQuizzes();
+      quizzes.forEach(quiz => {
+        const listItem = document.createElement("li");
+        listItem.className = "quiz-item";
+
+        const anchor = document.createElement("a");
+        anchor.className = "quiz-button";
+        anchor.textContent = quiz[1];
+        anchor.href = "/quiz/option?id=" + quiz[0];
+
+        listItem.appendChild(anchor);
+        quizList.appendChild(listItem);
+      });
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
+
+  window.onload = function() {
+    recreateQuizButtonsFromServer();
+    loadRightArea();
+  };
+</script>
+</html>

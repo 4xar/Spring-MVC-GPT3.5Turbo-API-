@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<!--
+History
+
+Shows all past quizzes fully completed.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav>
+    <h2><a href="/logout">Logout</a></h2>
+</nav>
+<div class="container">
+    <div class="lef-area">
+        <div class="quiz">
+            <ul>
+                <li>
+                    <a href="/dashboard">Home</a>
+                </li>
+                <li>
+                    <a href="/quiz/history">Quiz History</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="mid-area-p5">
+        <h2>Quiz History</h2>
+        <div class="table">
+            <div class="left">
+                <p>Topic</p>
+                <div th:each="entry : ${history}" class="tr">
+                    <p th:text="${entry.flashcardName}"></p>
+                    <li><a th:href="'/quiz?id=' + ${entry.id}">Attempt again</a></li>
+                </div>
+            </div>
+            <div class="right">
+                <p>Performance</p>
+                <div th:each="entry : ${history}" class="tr">
+                    <p th:text="${entry.score + '/10'}"></p>
+
+                    <button aria-label="Delete" th:attr="onclick='deleteEntry(\'' + ${entry.id} + '\')'">🗑️</button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="right-area">
+        <h3>Your Quizzes</h3>
+        <ul class="quizList">
+        </ul>
+    </div>
+</div>
+
+<script>
+    function deleteEntry(id) {
+        if (confirm("Are you sure you want to delete this entry?")) {
+            fetch('/quiz/history/delete/' + id, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            fetch('/quiz/delete/' + id, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        console.log(id);
+                        throw new Error('Failed to delete');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting:', error);
+                    alert('An error occurred while deleting. Please try again.');
+                });
+        }
+    }
+</script>
+
+<script>
+    async function fetchAllQuizzes() {
+        try {
+            const response = await fetch("/allQuizzes");
+            if (!response.ok) {
+                throw new Error("Network Response Error");
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error:", error);
+            return [];
+        }
+    }
+
+    async function loadRightArea() {
+        const quizList = document.querySelector(".right-area .quizList");
+        quizList.innerHTML = "";
+
+        try {
+            const quizzes = await fetchAllQuizzes();
+            quizzes.forEach(quiz => {
+                const listItem = document.createElement("li");
+                listItem.className = "quiz-link";
+
+                const anchor = document.createElement("a");
+                anchor.className = "quiz-button";
+                anchor.textContent = quiz[1];
+                anchor.href = "/quiz/option?id=" + quiz[0];
+
+                listItem.appendChild(anchor);
+                quizList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    }
+
+    window.onload = function() {
+        loadRightArea();
+    };
+</script>
+
+</body>
+</html>

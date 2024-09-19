@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<!--
+Quiz
+
+This is the page where the quiz
+takes place. Each correct answer
+will be followed by the color green
+and a point will be added to the score.
+Once completed, the submit button will
+appear for the user to click to end the
+quiz.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav>
+    <h2><a href="/logout">Logout</a></h2>
+</nav>
+<div class="container">
+    <div class="lef-area">
+        <div class="quiz">
+            <li><a href="/dashboard">Home</a></li>
+        </div>
+        <div class="quiz">
+            <li><a href="/quiz/history">Quiz History</a></li>
+        </div>
+        <div class="score">
+            <h3>Quiz</h3>
+            <p>Current Quiz</p>
+            <p>Score: <span id="scoreDisplay">/10</span></p>
+        </div>
+    </div>
+
+    <div class="mid-area-p4">
+        <div class="multi-answer" id="flashcardContainer">
+            <input type="hidden" id="quizName" name="quizName" th:value="${quiz.getName()}"/>
+            <th:block th:if="${isEnd}">
+                <button id="submitButton" type="submit" onclick="SubmitQuiz()">Submit :)</button>
+            </th:block>
+            <div th:if="${not isEnd}" style="display: block" id="flashcard">
+                <p th:text="${flashcards[currentFlashcardIndex].question}"></p>
+                <div class="ans-opt">
+                    <p>Multiple choice answers:</p>
+                    <p th:each="flashcard: ${flashcards[currentFlashcardIndex].options}">
+                        <input type="hidden" id="correctAnswer" th:value="${flashcards[currentFlashcardIndex].getCorrectAnswer()}"/>
+                        <td th:text="${flashcard.getOptionLetter()}" />
+                        <td th:text="${flashcard.getOptionText()}" />
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <form id="quizForm" th:action="@{/quiz}" th:object="${quiz}" method="get">
+                <input type="hidden" name="id" th:value="${quiz.id}"/>
+                <input type="hidden" name="currentFlashcardIndex" th:value="${currentFlashcardIndex}"/>
+                <input class="input1" th:if="${not isEnd}" type="text" id="flashcardInput" name="lname" placeholder="Enter your answer..." style="text-align: center;"><br><br>
+            </form>
+        </div>
+    </div>
+    <div class="right-area">
+        <h3>Your Quizzes</h3>
+        <ul class="quizList"></ul>
+    </div>
+</div>
+</body>
+
+<script>
+    var score = sessionStorage.getItem('score') || 0;
+    document.getElementById('scoreDisplay').innerText = score + '/10';
+
+    function handleNext() {
+        var inputText = document.getElementById("flashcardInput").value;
+        var correctAnswer = document.getElementById("correctAnswer").value;
+        var flashcardContainer = document.getElementById("flashcardContainer");
+
+        if (inputText.trim() === "") {
+            alert("Input cannot be empty!");
+            return;
+        }
+
+        var isCorrect = inputText.trim().toLowerCase() === correctAnswer.toLowerCase();
+        flashcardContainer.classList.remove("correct-answer", "incorrect-answer");
+        flashcardContainer.classList.add(isCorrect ? "correct-answer" : "incorrect-answer");
+
+        if (isCorrect && score < 10) {
+            score++;
+            sessionStorage.setItem('score', score);
+            document.getElementById('scoreDisplay').innerText = score + '/10';
+        }
+
+        setTimeout(function() {
+            flashcardContainer.classList.remove("correct-answer", "incorrect-answer");
+            document.getElementById("quizForm").submit();
+        }, 500);
+    }
+
+    document.getElementById("quizForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        handleNext();
+    });
+
+    function SubmitQuiz() {
+        var quizName = document.getElementById("quizName").value;
+        var quizData = {
+            name: quizName,
+            score: score
+        };
+
+        fetch("/quiz/saveQuizData", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(quizData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(data => {
+                console.log("Quiz data saved successfully:", data);
+                score = 0;
+                sessionStorage.removeItem('score');
+                window.location.href = "/quiz/history";
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("An error occurred while saving quiz data. Please try again.");
+            });
+    }
+
+    async function fetchAllQuizzes() {
+        try {
+            const response = await fetch("/allQuizzes");
+            if (!response.ok) {
+                throw new Error("Network response Error");
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error:", error);
+            return [];
+        }
+    }
+
+    async function loadRightArea() {
+        const quizList = document.querySelector(".right-area .quizList");
+        quizList.innerHTML = "";
+
+        try {
+            const quizzes = await fetchAllQuizzes();
+            quizzes.forEach(quiz => {
+                const listItem = document.createElement("li");
+                listItem.className = "quiz-link";
+
+                const anchor = document.createElement("a");
+                anchor.className = "quiz-button";
+                anchor.textContent = quiz[1];
+                anchor.href = "/quiz/option?id=" + quiz[0];
+
+                listItem.appendChild(anchor);
+                quizList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    }
+
+    window.onload = function() {
+        loadRightArea();
+    };
+
+</script>
+</html>
